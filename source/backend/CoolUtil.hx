@@ -26,6 +26,25 @@ class CoolUtil
 		return daList != null ? listFromString(daList) : [];
 	}
 
+	/**
+	 * Centers an object in a camera's field, basically `screenCenter()` but `camera.width` and `camera.height` are used instead of `FlxG.width` and `FlxG.height`.
+	 * @param obj Sprite to center
+	 * @param cam Camera
+	 * @param axes Axes (XY)
+	 */
+	public static inline function cameraCenter(obj:FlxObject, cam:FlxCamera, axes:FlxAxes = XY) {
+		switch(axes) {
+			case XY:
+				obj.setPosition((cam.width - obj.width) / 2, (cam.height - obj.height) / 2);
+			case X:
+				obj.x = (cam.width - obj.width) / 2;
+			case Y:
+				obj.y = (cam.height - obj.height) / 2;
+			case NONE:
+
+		}
+	}
+
 	inline public static function colorFromString(color:String):FlxColor
 	{
 		var hideChars = ~/[\t\n\r]/;
