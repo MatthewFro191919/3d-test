@@ -1,85 +1,258 @@
-<?xml version="1.0" encoding="utf-8"?>
-<project xmlns="http://lime.software/project/1.0.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://lime.software/project/1.0.2 http://lime.software/xsd/project-1.0.2.xsd">
+package funkin.backend.utils.native;
 
-	<!-- _________________________ Application Settings _________________________ -->
+#if windows
+import funkin.backend.utils.NativeAPI.FileAttribute;
+import funkin.backend.utils.NativeAPI.MessageBoxIcon;
+@:buildXml('
+<target id="haxe">
+	<lib name="dwmapi.lib" if="windows" />
+	<lib name="shell32.lib" if="windows" />
+	<lib name="gdi32.lib" if="windows" />
+	<lib name="ole32.lib" if="windows" />
+	<lib name="uxtheme.lib" if="windows" />
+</target>
+')
 
-	<app title="FlxProject" file="FlxProject" main="Main" version="0.0.1" company="HaxeFlixel" />
+// majority is taken from microsofts doc
+@:cppFileCode('
+#include "mmdeviceapi.h"
+#include "combaseapi.h"
+#include <iostream>
+#include <Windows.h>
+#include <cstdio>
+#include <tchar.h>
+#include <dwmapi.h>
+#include <winuser.h>
+#include <Shlobj.h>
+#include <wingdi.h>
+#include <shellapi.h>
+#include <uxtheme.h>
 
-	<!--The flixel preloader is not accurate in Chrome. You can use it regularly if you embed the swf into a html file
-		or you can set the actual size of your file manually at "FlxPreloaderBase-onUpdate-bytesTotal"-->
-	<app preloader="flixel.system.FlxPreloader" />
+#define SAFE_RELEASE(punk)  \\
+			  if ((punk) != NULL)  \\
+				{ (punk)->Release(); (punk) = NULL; }
 
-	<!--Minimum without FLX_NO_GAMEPAD: 11.8, without FLX_NO_NATIVE_CURSOR: 11.2-->
-	<set name="SWF_VERSION" value="11.8" />
+static long lastDefId = 0;
 
-	<!-- ____________________________ Window Settings ___________________________ -->
+class AudioFixClient : public IMMNotificationClient {
+	LONG _cRef;
+	IMMDeviceEnumerator *_pEnumerator;
 
-	<!--These window settings apply to all targets-->
-	<window width="640" height="480" fps="60" background="#000000" hardware="true" vsync="false" />
+	public:
+	AudioFixClient() :
+		_cRef(1),
+		_pEnumerator(NULL)
+	{
+		HRESULT result = CoCreateInstance(__uuidof(MMDeviceEnumerator),
+							  NULL, CLSCTX_INPROC_SERVER,
+							  __uuidof(IMMDeviceEnumerator),
+							  (void**)&_pEnumerator);
+		if (result == S_OK) {
+			_pEnumerator->RegisterEndpointNotificationCallback(this);
+		}
+	}
 
-	<!--HTML5-specific-->
-	<window if="html5" resizable="false" />
+	~AudioFixClient()
+	{
+		SAFE_RELEASE(_pEnumerator);
+	}
 
-	<!--Desktop-specific-->
-	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" />
+	ULONG STDMETHODCALLTYPE AddRef()
+	{
+		return InterlockedIncrement(&_cRef);
+	}
 
-	<!--Mobile-specific-->
-	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" />
+	ULONG STDMETHODCALLTYPE Release()
+	{
+		ULONG ulRef = InterlockedDecrement(&_cRef);
+		if (0 == ulRef)
+		{
+			delete this;
+		}
+		return ulRef;
+	}
 
-	<!-- _____________________________ Path Settings ____________________________ -->
+	HRESULT STDMETHODCALLTYPE QueryInterface(
+								REFIID riid, VOID **ppvInterface)
+	{
+		return S_OK;
+	}
 
-	<set name="BUILD_DIR" value="export" />
-	<source path="source" />
-	<assets path="assets" />
+	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId)
+	{
+		return S_OK;
+	};
 
-	<!-- _______________________________ Libraries ______________________________ -->
+	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId)
+	{
+		return S_OK;
+	}
 
-	<haxelib name="flixel" />
-	<haxelib name="away3d"/>
+	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(
+								LPCWSTR pwstrDeviceId,
+								DWORD dwNewState)
+	{
+		return S_OK;
+	}
 
-	<!--In case you want to use the addons package-->
-	<!--<haxelib name="flixel-addons" />-->
+	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(
+								LPCWSTR pwstrDeviceId,
+								const PROPERTYKEY key)
+	{
+		return S_OK;
+	}
 
-	<!--In case you want to use the ui package-->
-	<!--<haxelib name="flixel-ui" />-->
+	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(
+		EDataFlow flow, ERole role,
+		LPCWSTR pwstrDeviceId)
+	{
+		::funkin::backend::_hx_system::Main_obj::audioDisconnected = true;
+		return S_OK;
+	};
+};
 
-	<!--In case you want to use nape with flixel-->
-	<!--<haxelib name="nape-haxe4" />-->
+AudioFixClient *curAudioFix;
+')
+@:dox(hide)
+class Windows {
 
-	<!-- ______________________________ Haxedefines _____________________________ -->
+	public static var __audioChangeCallback:Void->Void = function() {
+		trace("test");
+	};
 
-	<!--Enable the Flixel core recording system-->
-	<!--<haxedef name="FLX_RECORD" />-->
 
-	<!--Disable the right and middle mouse buttons-->
-	<!--<haxedef name="FLX_NO_MOUSE_ADVANCED" />-->
+	@:functionCode('
+	if (!curAudioFix) curAudioFix = new AudioFixClient();
+	')
+	public static function registerAudio() {
+		funkin.backend.system.Main.audioDisconnected = false;
+	}
 
-	<!--Disable the native cursor API on Flash-->
-	<!--<haxedef name="FLX_NO_NATIVE_CURSOR" />-->
+	@:functionCode('
+		int darkMode = enable ? 1 : 0;
 
-	<!--Optimise inputs, be careful you will get null errors if you don't use conditionals in your game-->
-	<haxedef name="FLX_NO_MOUSE" if="mobile" />
-	<haxedef name="FLX_NO_KEYBOARD" if="mobile" />
-	<haxedef name="FLX_NO_TOUCH" if="desktop" />
-	<!--<haxedef name="FLX_NO_GAMEPAD" />-->
+		HWND window = FindWindowA(NULL, title.c_str());
+		// Look for child windows if top level aint found
+		if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
+		// If still not found, try to get the active window
+		if (window == NULL) window = GetActiveWindow();
+		if (window == NULL) return;
 
-	<!--Disable the Flixel core sound tray-->
-	<!--<haxedef name="FLX_NO_SOUND_TRAY" />-->
+		if (S_OK != DwmSetWindowAttribute(window, 19, &darkMode, sizeof(darkMode))) {
+			DwmSetWindowAttribute(window, 20, &darkMode, sizeof(darkMode));
+		}
+		UpdateWindow(window);
+	')
+	public static function setDarkMode(title:String, enable:Bool) {}
 
-	<!--Disable the Flixel sound management code-->
-	<!--<haxedef name="FLX_NO_SOUND_SYSTEM" />-->
+	@:functionCode('
+	HWND window = FindWindowA(NULL, title.c_str());
+	if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
+	if (window == NULL) window = GetActiveWindow();
+	if (window == NULL) return;
 
-	<!--Disable the Flixel core focus lost screen-->
-	<!--<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />-->
+	COLORREF finalColor;
+	if(color[0] == -1 && color[1] == -1 && color[2] == -1 && color[3] == -1) { // bad fix, I know :sob:
+		finalColor = 0xFFFFFFFF; // Default border
+	} else if(color[3] == 0) {
+		finalColor = 0xFFFFFFFE; // No border (must have setBorder as true)
+	} else {
+		finalColor = RGB(color[0], color[1], color[2]); // Use your custom color
+	}
 
-	<!--Disable the Flixel core debugger. Automatically gets set whenever you compile in release mode!-->
-	<haxedef name="FLX_NO_DEBUG" unless="debug" />
+	if(setHeader) DwmSetWindowAttribute(window, 35, &finalColor, sizeof(COLORREF));
+	if(setBorder) DwmSetWindowAttribute(window, 34, &finalColor, sizeof(COLORREF));
 
-	<!--Enable this for Nape release builds for a serious peformance improvement-->
-	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />
+	UpdateWindow(window);
+	')
+	public static function setWindowBorderColor(title:String, color:Array<Int>, setHeader:Bool = true, setBorder:Bool = true) {}
 
-	<!-- _________________________________ Custom _______________________________ -->
+	@:functionCode('
+	HWND window = FindWindowA(NULL, title.c_str());
+	if (window == NULL) window = FindWindowExA(GetActiveWindow(), NULL, NULL, title.c_str());
+	if (window == NULL) window = GetActiveWindow();
+	if (window == NULL) return;
 
-	<!--Place custom nodes like icons here (higher priority to override the HaxeFlixel icon)-->
-</project>
+	COLORREF finalColor;
+	if(color[0] == -1 && color[1] == -1 && color[2] == -1 && color[3] == -1) { // bad fix, I know :sob:
+		finalColor = 0xFFFFFFFF; // Default border
+	} else {
+		finalColor = RGB(color[0], color[1], color[2]); // Use your custom color
+	}
+
+	DwmSetWindowAttribute(window, 36, &finalColor, sizeof(COLORREF));
+	UpdateWindow(window);
+	')
+	public static function setWindowTitleColor(title:String, color:Array<Int>) {}
+
+	@:functionCode('
+	// https://stackoverflow.com/questions/15543571/allocconsole-not-displaying-cout
+
+	if (!AllocConsole())
+		return;
+
+	freopen("CONIN$", "r", stdin);
+	freopen("CONOUT$", "w", stdout);
+	freopen("CONOUT$", "w", stderr);
+	')
+	public static function allocConsole() {
+	}
+
+	@:functionCode('
+		return GetFileAttributes(path);
+	')
+	public static function getFileAttributes(path:String):FileAttribute
+	{
+		return NORMAL;
+	}
+
+	@:functionCode('
+		return SetFileAttributes(path, attrib);
+	')
+	public static function setFileAttributes(path:String, attrib:FileAttribute):Int
+	{
+		return 0;
+	}
+
+
+	@:functionCode('
+		HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(console, color);
+	')
+	public static function setConsoleColors(color:Int) {
+
+	}
+
+	@:functionCode('
+		system("CLS");
+		std::cout<< "" <<std::flush;
+	')
+	public static function clearScreen() {
+
+	}
+
+
+	@:functionCode('
+		MessageBox(GetActiveWindow(), message, caption, icon | MB_SETFOREGROUND);
+	')
+	public static function showMessageBox(caption:String, message:String, icon:MessageBoxIcon = MSG_WARNING) {
+
+	}
+
+	@:functionCode('
+		SetProcessDPIAware();
+	')
+	public static function registerAsDPICompatible() {}
+
+	@:functionCode("
+		// simple but effective code
+		unsigned long long allocatedRAM = 0;
+		GetPhysicallyInstalledSystemMemory(&allocatedRAM);
+		return (allocatedRAM / 1024);
+	")
+	public static function getTotalRam():Float
+	{
+		return 0;
+	}
+}
+#end
