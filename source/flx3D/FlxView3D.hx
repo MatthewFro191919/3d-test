@@ -11,7 +11,6 @@ import away3d.library.Asset3DLibraryBundle;
 import away3d.events.LoaderEvent;
 import away3d.loaders.AssetLoader;
 import away3d.loaders.misc.AssetLoaderToken;
-import funkin.backend.system.Logs;
 import flixel.FlxG;
 import flx3d.Flx3DUtil;
 import away3d.library.assets.Asset3DType;
