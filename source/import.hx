@@ -67,6 +67,7 @@ import openfl.utils.Assets;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
+import flixel.util.FlxAxes;
 import flixel.util.FlxDestroyUtil;
 
 using StringTools;
