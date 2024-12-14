@@ -264,6 +264,30 @@ class Paths
 		return (OpenFlAssets.exists(getPath(key, type, parentFolder, false)));
 	}
 
+	inline static public function obj(key:String) {
+		return getPath('models/$key.obj');
+	}
+
+	inline static public function dae(key:String) {
+		return getPath('models/$key.dae');
+	}
+
+	inline static public function md2(key:String) {
+		return getPath('models/$key.md2');
+	}
+
+	inline static public function md5(key:String) {
+		return getPath('models/$key.md5');
+	}
+
+	inline static public function awd(key:String) {
+		return getPath('models/$key.awd');
+	}
+
+	inline static public function fbx(key:String) {
+		return getPath('models/$key.fbx');
+	}
+
 	static public function getAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var useMod = false;
